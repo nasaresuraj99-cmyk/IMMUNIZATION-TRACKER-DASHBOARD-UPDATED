@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immunization Tracker PWA - IA2030 Compliant</title>
+    <meta name="description" content="Professional Immunization Tracking System for Children 0-59 Months">
+    <meta name="theme-color" content="#1e88e5">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" href="assets/icons/icon-72x72.png">
+    <link rel="apple-touch-icon" href="assets/icons/icon-152x152.png">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Chart.js for Reports -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- HTML2PDF for Reports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loader"></div>
+            <p class="loading-text">Loading Immunization Tracker...</p>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app-container" class="app-container hidden">
+        <!-- Auth Screens -->
+        <div id="auth-screens">
+            <!-- Login Screen -->
+            <div id="login-screen" class="auth-screen">
+                <div class="auth-container">
+                    <div class="auth-header">
+                        <img src="assets/icons/icon-192x192.png" alt="App Logo" class="auth-logo">
+                        <h1>Immunization Tracker</h1>
+                        <p class="auth-subtitle">IA2030 Compliant System</p>
+                    </div>
+                    
+                    <form id="login-form" class="auth-form">
+                        <div class="form-group">
+                            <label for="login-email">Email</label>
+                            <input type="email" id="login-email" required 
+                                   placeholder="healthworker@facility.gov">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="login-password">Password</label>
+                            <input type="password" id="login-password" required 
+                                   placeholder="••••••••">
+                            <button type="button" class="toggle-password" 
+                                    onclick="togglePassword('login-password')">
+                                👁
+                            </button>
+                        </div>
+                        
+                        <div id="login-error" class="error-message hidden">
+                            Invalid email or password
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-block">
+                            Sign In
+                        </button>
+                        
+                        <div class="auth-links">
+                            <a href="#" onclick="showScreen('register-screen')">
+                                Register New Facility
+                            </a>
+                            <a href="#" onclick="showScreen('forgot-password-screen')">
+                                Forgot Password?
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Registration Screen -->
+            <div id="register-screen" class="auth-screen hidden">
+                <div class="auth-container">
+                    <div class="auth-header">
+                        <h2>Register New Facility</h2>
+                        <p>Complete registration for facility approval</p>
+                    </div>
+                    
+                    <form id="register-form" class="auth-form">
+                        <h3>Facility Information</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="facility-name">Facility Name *</label>
+                                <input type="text" id="facility-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="facility-code">Facility Code *</label>
+                                <input type="text" id="facility-code" required 
+                                       pattern="[A-Z0-9]{3,10}">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="facility-type">Facility Type *</label>
+                            <select id="facility-type" required>
+                                <option value="">Select type</option>
+                                <option value="hospital">Hospital</option>
+                                <option value="health_center">Health Center</option>
+                                <option value="clinic">Clinic</option>
+                                <option value="mobile">Mobile Unit</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="facility-region">Region/District *</label>
+                            <input type="text" id="facility-region" required>
+                        </div>
+                        
+                        <h3>Primary Contact Information</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="user-name">Full Name *</label>
+                                <input type="text" id="user-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="user-email">Email *</label>
+                                <input type="email" id="user-email" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="user-phone">Phone Number *</label>
+                                <input type="tel" id="user-phone" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="user-password">Password *</label>
+                                <input type="password" id="user-password" required 
+                                       minlength="8">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="confirm-password">Confirm Password *</label>
+                            <input type="password" id="confirm-password" required>
+                        </div>
+                        
+                        <div class="form-group terms">
+                            <input type="checkbox" id="terms" required>
+                            <label for="terms">
+                                I agree to the terms and confirm facility ownership
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-block">
+                            Submit for Approval
+                        </button>
+                        
+                        <div class="auth-links">
+                            <a href="#" onclick="showScreen('login-screen')">
+                                Back to Login
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App -->
+        <div id="main-app" class="hidden">
+            <!-- Header -->
+            <header class="app-header">
+                <button class="menu-toggle" onclick="toggleSidebar()">
+                    ☰
+                </button>
+                
+                <div class="header-title">
+                    <h1 id="page-title">Dashboard</h1>
+                    <p id="facility-info" class="facility-info"></p>
+                </div>
+                
+                <div class="header-actions">
+                    <div class="connection-status" id="connection-status">
+                        <span class="status-indicator online"></span>
+                        Online
+                    </div>
+                    
+                    <div class="user-menu">
+                        <button class="user-btn" onclick="toggleUserMenu()">
+                            <span id="user-initials">U</span>
+                        </button>
+                        <div id="user-dropdown" class="user-dropdown hidden">
+                            <div class="user-info">
+                                <strong id="dropdown-user-name"></strong>
+                                <small id="dropdown-user-role"></small>
+                                <small id="dropdown-user-facility"></small>
+                            </div>
+                            <hr>
+                            <a href="#" onclick="showScreen('profile-screen')">
+                                👤 Profile Settings
+                            </a>
+                            <a href="#" onclick="toggleNotifications()">
+                                🔔 Notifications
+                                <span id="notification-count" class="notification-badge hidden">0</span>
+                            </a>
+                            <a href="#" onclick="exportAllData()">
+                                📤 Export Data
+                            </a>
+                            <hr>
+                            <a href="#" onclick="logout()" class="logout-btn">
+                                🚪 Logout
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Sidebar -->
+            <nav class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <h3>Immunization Tracker</h3>
+                    <small>IA2030 Compliant</small>
+                </div>
+                
+                <ul class="sidebar-menu">
+                    <li class="menu-item active" onclick="showDashboard()">
+                        📊 Dashboard
+                    </li>
+                    
+                    <li class="menu-section">Child Management</li>
+                    <li class="menu-item" onclick="showChildRegistration()">
+                        👶 Register Child
+                    </li>
+                    <li class="menu-item" onclick="showChildList()">
+                        📋 Children List
+                    </li>
+                    <li class="menu-item" onclick="showDefaulters()">
+                        ⚠️ Defaulters
+                    </li>
+                    
+                    <li class="menu-section">Vaccine Management</li>
+                    <li class="menu-item" onclick="showVaccineSchedule()">
+                        📅 Vaccine Schedule
+                    </li>
+                    <li class="menu-item" onclick="showVaccineAdministration()">
+                        💉 Administer Vaccine
+                    </li>
+                    <li class="menu-item" onclick="showUpcomingVaccines()">
+                        🔔 Upcoming Vaccines
+                    </li>
+                    
+                    <li class="menu-section">Reports & Analytics</li>
+                    <li class="menu-item" onclick="showCoverageReports()">
+                        📈 Coverage Reports
+                    </li>
+                    <li class="menu-item" onclick="showDropoutAnalysis()">
+                        📉 Dropout Analysis
+                    </li>
+                    <li class="menu-item" onclick="showStockReports()">
+                        📊 Stock Reports
+                    </li>
+                    
+                    <li class="menu-section">Supply Chain</li>
+                    <li class="menu-item" onclick="showStockManagement()">
+                        📦 Stock Management
+                    </li>
+                    <li class="menu-item" onclick="showColdChain()">
+                        ❄️ Cold Chain
+                    </li>
+                    <li class="menu-item" onclick="showExpiryMonitoring()">
+                        ⏰ Expiry Monitoring
+                    </li>
+                    
+                    <!-- Admin Only -->
+                    <div id="admin-menu" class="hidden">
+                        <li class="menu-section">Administration</li>
+                        <li class="menu-item" onclick="showUserManagement()">
+                            👥 User Management
+                        </li>
+                        <li class="menu-item" onclick="showFacilityManagement()">
+                            🏥 Facility Management
+                        </li>
+                        <li class="menu-item" onclick="showSystemConfig()">
+                            ⚙️ System Configuration
+                        </li>
+                        <li class="menu-item" onclick="showAuditLogs()">
+                            📋 Audit Logs
+                        </li>
+                    </div>
+                </ul>
+                
+                <div class="sidebar-footer">
+                    <div class="sync-status" id="sync-status">
+                        <span class="sync-icon">🔄</span>
+                        <span class="sync-text">Synced</span>
+                    </div>
+                    <button class="btn btn-sm" onclick="forceSync()">
+                        Sync Now
+                    </button>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="main-content" id="main-content">
+                <!-- Dashboard -->
+                <div id="dashboard-screen" class="content-screen">
+                    <div class="dashboard-header">
+                        <h2>Immunization Dashboard</h2>
+                        <div class="date-range">
+                            <select id="dashboard-period">
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month" selected>This Month</option>
+                                <option value="quarter">This Quarter</option>
+                                <option value="year">This Year</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon total-children">👶</div>
+                            <div class="stat-info">
+                                <h3 id="total-children">0</h3>
+                                <p>Total Children</p>
+                            </div>
+                            <div class="stat-trend up">+12%</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon due-vaccines">💉</div>
+                            <div class="stat-info">
+                                <h3 id="due-vaccines">0</h3>
+                                <p>Due Vaccines</p>
+                            </div>
+                            <div class="stat-trend up">+5%</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon defaulters">⚠️</div>
+                            <div class="stat-info">
+                                <h3 id="total-defaulters">0</h3>
+                                <p>Defaulters</p>
+                            </div>
+                            <div class="stat-trend down">-8%</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon coverage">📈</div>
+                            <div class="stat-info">
+                                <h3 id="coverage-rate">0%</h3>
+                                <p>Coverage Rate</p>
+                            </div>
+                            <div class="stat-trend up">+3%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Charts -->
+                    <div class="dashboard-charts">
+                        <div class="chart-container">
+                            <h3>Monthly Coverage Trend</h3>
+                            <canvas id="coverage-chart"></canvas>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <h3>Vaccine Completion Status</h3>
+                            <canvas id="vaccine-status-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity & Alerts -->
+                    <div class="dashboard-grid">
+                        <div class="card">
+                            <h3>Recent Registrations</h3>
+                            <div id="recent-registrations" class="list-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <h3>System Alerts</h3>
+                            <div id="system-alerts" class="alerts-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Child Registration Screen -->
+                <div id="child-registration-screen" class="content-screen hidden">
+                    <div class="screen-header">
+                        <h2>Register New Child</h2>
+                        <p>Complete child biodata for immunization tracking</p>
+                    </div>
+                    
+                    <form id="child-registration-form" class="multi-step-form">
+                        <!-- Step 1: Basic Information -->
+                        <div class="form-step active" id="step1">
+                            <h3>Basic Information</h3>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="child-first-name">First Name *</label>
+                                    <input type="text" id="child-first-name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="child-last-name">Last Name *</label>
+                                    <input type="text" id="child-last-name" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="child-dob">Date of Birth *</label>
+                                <input type="date" id="child-dob" required 
+                                       max="<?php echo date('Y-m-d'); ?>">
+                                <small class="form-hint">
+                                    Age: <span id="child-age">0</span> months
+                                </small>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="child-gender">Gender *</label>
+                                    <select id="child-gender" required>
+                                        <option value="">Select</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="child-birth-weight">Birth Weight (kg)</label>
+                                    <input type="number" id="child-birth-weight" 
+                                           step="0.1" min="0.5" max="5">
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" 
+                                        onclick="resetForm()">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-primary" 
+                                        onclick="nextStep(2)">
+                                    Next: Contact Information →
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 2: Contact Information -->
+                        <div class="form-step hidden" id="step2">
+                            <h3>Contact Information</h3>
+                            
+                            <div class="form-group">
+                                <label for="guardian-name">Guardian/Parent Name *</label>
+                                <input type="text" id="guardian-name" required>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="guardian-phone">Phone Number *</label>
+                                    <input type="tel" id="guardian-phone" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="guardian-relationship">Relationship *</label>
+                                    <select id="guardian-relationship" required>
+                                        <option value="">Select</option>
+                                        <option value="mother">Mother</option>
+                                        <option value="father">Father</option>
+                                        <option value="grandparent">Grandparent</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="residence-address">Residence Address *</label>
+                                <textarea id="residence-address" rows="3" required></textarea>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="village">Village/Locality</label>
+                                    <input type="text" id="village">
+                                </div>
+                                <div class="form-group">
+                                    <label for="district">District</label>
+                                    <input type="text" id="district">
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" 
+                                        onclick="prevStep(1)">
+                                    ← Back
+                                </button>
+                                <button type="button" class="btn btn-primary" 
+                                        onclick="nextStep(3)">
+                                    Next: Medical History →
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 3: Medical History -->
+                        <div class="form-step hidden" id="step3">
+                            <h3>Medical History</h3>
+                            
+                            <div class="form-group">
+                                <label for="birth-complications">Birth Complications</label>
+                                <textarea id="birth-complications" rows="2" 
+                                          placeholder="Describe any complications during birth"></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Known Allergies</label>
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="allergies" value="medication">
+                                        Medication
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="allergies" value="food">
+                                        Food
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="allergies" value="none">
+                                        None
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="chronic-conditions">Chronic Conditions</label>
+                                <textarea id="chronic-conditions" rows="2" 
+                                          placeholder="Any chronic conditions or disabilities"></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="previous-vaccinations">Previous Vaccinations (if any)</label>
+                                <textarea id="previous-vaccinations" rows="2" 
+                                          placeholder="List any vaccinations received before registration"></textarea>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" 
+                                        onclick="prevStep(2)">
+                                    ← Back
+                                </button>
+                                <button type="button" class="btn btn-primary" 
+                                        onclick="nextStep(4)">
+                                    Next: Review & Submit →
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 4: Review & Submit -->
+                        <div class="form-step hidden" id="step4">
+                            <h3>Review & Submit</h3>
+                            
+                            <div class="review-summary">
+                                <h4>Child Information Summary</h4>
+                                <div id="review-content"></div>
+                                
+                                <div class="form-group">
+                                    <label for="child-id-notes">Additional Notes</label>
+                                    <textarea id="child-id-notes" rows="2" 
+                                              placeholder="Any additional information"></textarea>
+                                </div>
+                                
+                                <div class="form-group terms">
+                                    <input type="checkbox" id="consent" required>
+                                    <label for="consent">
+                                        I confirm that all information provided is accurate and 
+                                        consent to immunization tracking
+                                    </label>
+                                </div>
+                                
+                                <div class="generated-id" id="generated-id">
+                                    <strong>Child ID will be generated upon submission</strong>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" 
+                                        onclick="prevStep(3)">
+                                    ← Back
+                                </button>
+                                <button type="submit" class="btn btn-success">
+                                    ✅ Register Child
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Children List Screen -->
+                <div id="children-list-screen" class="content-screen hidden">
+                    <div class="screen-header">
+                        <h2>Children Registry</h2>
+                        <div class="header-actions">
+                            <div class="search-box">
+                                <input type="text" id="search-children" 
+                                       placeholder="Search by name, ID, age...">
+                                <button class="search-btn">🔍</button>
+                            </div>
+                            <button class="btn btn-primary" onclick="showChildRegistration()">
+                                + Add Child
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <div class="filters-container">
+                        <select id="filter-age">
+                            <option value="">All Ages</option>
+                            <option value="0-6">0-6 months</option>
+                            <option value="7-12">7-12 months</option>
+                            <option value="13-24">13-24 months</option>
+                            <option value="25-59">25-59 months</option>
+                        </select>
+                        
+                        <select id="filter-status">
+                            <option value="">All Status</option>
+                            <option value="up_to_date">Up to Date</option>
+                            <option value="defaulters">Defaulters</option>
+                            <option value="due_soon">Due Soon</option>
+                        </select>
+                        
+                        <select id="filter-vaccine">
+                            <option value="">All Vaccines</option>
+                            <option value="bcg">BCG</option>
+                            <option value="opv">OPV</option>
+                            <option value="penta">Penta</option>
+                        </select>
+                        
+                        <button class="btn btn-secondary" onclick="clearFilters()">
+                            Clear Filters
+                        </button>
+                    </div>
+                    
+                    <!-- Children Table -->
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Child ID</th>
+                                    <th>Name</th>
+                                    <th>Age</th>
+                                    <th>Guardian</th>
+                                    <th>Vaccine Status</th>
+                                    <th>Next Due</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="children-table-body">
+                                <!-- Filled by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div class="pagination">
+                        <button class="page-btn" onclick="prevPage()">← Previous</button>
+                        <span class="page-info">Page <span id="current-page">1</span></span>
+                        <button class="page-btn" onclick="nextPage()">Next →</button>
+                    </div>
+                </div>
+
+                <!-- Vaccine Schedule Screen -->
+                <div id="vaccine-schedule-screen" class="content-screen hidden">
+                    <div class="screen-header">
+                        <h2>IA2030 Vaccine Schedule</h2>
+                        <div class="schedule-period">
+                            <label>View Schedule for Age:</label>
+                            <select id="age-filter" onchange="filterVaccineSchedule()">
+                                <option value="all">All Ages (0-59 months)</option>
+                                <option value="birth">At Birth</option>
+                                <option value="6w">6 Weeks</option>
+                                <option value="10w">10 Weeks</option>
+                                <option value="14w">14 Weeks</option>
+                                <option value="6-12m">6-12 Months</option>
+                                <option value="18m">18 Months</option>
+                                <option value="2-5y">2-5 Years</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="vaccine-schedule-grid">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Reports Screen -->
+                <div id="reports-screen" class="content-screen hidden">
+                    <div class="screen-header">
+                        <h2>Reports & Analytics</h2>
+                        <div class="report-actions">
+                            <select id="report-period">
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly" selected>Monthly</option>
+                                <option value="quarterly">Quarterly</option>
+                                <option value="yearly">Yearly</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                            
+                            <div id="custom-range" class="hidden">
+                                <input type="date" id="report-start">
+                                <span>to</span>
+                                <input type="date" id="report-end">
+                            </div>
+                            
+                            <button class="btn btn-primary" onclick="generateReport()">
+                                Generate Report
+                            </button>
+                            <button class="btn btn-secondary" onclick="exportReport()">
+                                📥 Export PDF
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="report-tabs">
+                        <button class="tab-btn active" onclick="showReportTab('coverage')">
+                            Coverage Report
+                        </button>
+                        <button class="tab-btn" onclick="showReportTab('dropout')">
+                            Dropout Analysis
+                        </button>
+                        <button class="tab-btn" onclick="showReportTab('defaulters')">
+                            Defaulters List
+                        </button>
+                        <button class="tab-btn" onclick="showReportTab('stock')">
+                            Stock Report
+                        </button>
+                        <button class="tab-btn" onclick="showReportTab('cold-chain')">
+                            Cold Chain Report
+                        </button>
+                    </div>
+                    
+                    <div class="report-content">
+                        <div id="coverage-report" class="report-tab active">
+                            <!-- Coverage charts and tables -->
+                        </div>
+                        <div id="dropout-report" class="report-tab hidden">
+                            <!-- Dropout analysis -->
+                        </div>
+                        <div id="defaulters-report" class="report-tab hidden">
+                            <!-- Defaulters list -->
+                        </div>
+                        <div id="stock-report" class="report-tab hidden">
+                            <!-- Stock report -->
+                        </div>
+                        <div id="cold-chain-report" class="report-tab hidden">
+                            <!-- Cold chain report -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Supply Chain Management -->
+                <div id="supply-screen" class="content-screen hidden">
+                    <div class="screen-header">
+                        <h2>Supply Chain Management</h2>
+                        <div class="header-actions">
+                            <button class="btn btn-primary" onclick="showStockEntry()">
+                                + Stock Entry
+                            </button>
+                            <button class="btn btn-secondary" onclick="showWastageLog()">
+                                Log Wastage
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Stock Dashboard -->
+                    <div class="stock-dashboard">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Admin Screens -->
+                <div id="admin-screens" class="hidden">
+                    <!-- User Management -->
+                    <div id="user-management-screen" class="content-screen hidden">
+                        <!-- User management content -->
+                    </div>
+                    
+                    <!-- Facility Management -->
+                    <div id="facility-management-screen" class="content-screen hidden">
+                        <!-- Facility management content -->
+                    </div>
+                </div>
+            </main>
+
+            <!-- Notifications Panel -->
+            <div id="notifications-panel" class="notifications-panel hidden">
+                <div class="notifications-header">
+                    <h3>Notifications</h3>
+                    <button class="close-btn" onclick="toggleNotifications()">×</button>
+                </div>
+                <div class="notifications-list" id="notifications-list">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Install Prompt -->
+            <div id="install-prompt" class="install-prompt hidden">
+                <div class="install-content">
+                    <p>Install Immunization Tracker for better experience</p>
+                    <button class="btn btn-primary" onclick="installApp()">
+                        Install App
+                    </button>
+                    <button class="btn btn-secondary" onclick="dismissInstall()">
+                        Not Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+    
+    <!-- Initialize App -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+    </script>
+</body>
+</html>
