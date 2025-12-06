@@ -1,0 +1,95 @@
+{
+  "name": "Immunization Tracker PWA",
+  "short_name": "VaxTracker",
+  "description": "WHO EPI Agenda 2030 Immunization Tracker - Progressive Web App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#2c3e50",
+  "theme_color": "#2c3e50",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["health", "productivity", "medical"],
+  "shortcuts": [
+    {
+      "name": "Add New Child",
+      "short_name": "Add Child",
+      "description": "Register a new child for immunization",
+      "url": "/?action=add-child",
+      "icons": [
+        {
+          "src": "/assets/icons/child-icon.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Record Vaccination",
+      "short_name": "Record Vax",
+      "description": "Record a vaccination administration",
+      "url": "/?action=record-vaccination",
+      "icons": [
+        {
+          "src": "/assets/icons/vaccine-icon.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/assets/screenshots/dashboard.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/assets/screenshots/mobile-dashboard.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": []
+}

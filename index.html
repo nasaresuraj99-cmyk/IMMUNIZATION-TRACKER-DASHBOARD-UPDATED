@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immunization Tracker PWA - WHO EPI 2030</title>
+    <meta name="description" content="WHO EPI Agenda 2030 Immunization Tracker - PWA">
+    <meta name="theme-color" content="#2c3e50">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="logo">
+                    <i class="fas fa-syringe"></i>
+                    <h1>Immunization Tracker</h1>
+                </div>
+                <p class="subtitle">WHO EPI Agenda 2030</p>
+                <p class="tagline">Tracking Every Child's Vaccination Journey</p>
+            </div>
+            
+            <div class="login-form">
+                <h2>Sign In</h2>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="email" placeholder="Enter your email">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="password" placeholder="Enter your password">
+                        <button type="button" class="show-password" id="show-password-btn">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="login-error" class="error-message"></div>
+                
+                <button id="login-btn" class="btn-primary">
+                    <span class="btn-text">Sign In</span>
+                    <div class="spinner hidden" id="login-spinner"></div>
+                </button>
+                
+                <div class="login-footer">
+                    <p>Contact administrator for account access</p>
+                    <p class="version">v1.0.0 | PWA Ready</p>
+                </div>
+            </div>
+            
+            <div class="features">
+                <div class="feature">
+                    <i class="fas fa-child"></i>
+                    <h3>Reach Every Child</h3>
+                    <p>Defaulter tracking & follow-ups</p>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-snowflake"></i>
+                    <h3>Cold Chain Monitoring</h3>
+                    <p>Vaccine temperature tracking</p>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>Real-time Reports</h3>
+                    <p>Generate PDF/CSV reports</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Dashboard -->
+    <div id="user-dashboard" class="screen">
+        <header class="dashboard-header">
+            <div class="header-left">
+                <button class="menu-toggle" id="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="logo-small">
+                    <i class="fas fa-syringe"></i>
+                    <span>Immunization Tracker</span>
+                </div>
+            </div>
+            
+            <div class="header-center">
+                <div class="facility-info">
+                    <i class="fas fa-hospital"></i>
+                    <span id="facility-name">Loading Facility...</span>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="user-email">user@example.com</span>
+                </div>
+                <button class="btn-icon" id="logout-btn" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </header>
+        
+        <div class="dashboard-container">
+            <!-- Sidebar -->
+            <nav class="sidebar" id="sidebar">
+                <div class="sidebar-menu">
+                    <a href="#" class="menu-item active" data-section="overview">
+                        <i class="fas fa-home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="#" class="menu-item" data-section="children">
+                        <i class="fas fa-child"></i>
+                        <span>Children</span>
+                    </a>
+                    <a href="#" class="menu-item" data-section="vaccinations">
+                        <i class="fas fa-syringe"></i>
+                        <span>Vaccinations</span>
+                    </a>
+                    <a href="#" class="menu-item" data-section="defaulters">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Defaulters</span>
+                        <span class="badge" id="defaulter-count">0</span>
+                    </a>
+                    <a href="#" class="menu-item" data-section="cold-chain">
+                        <i class="fas fa-snowflake"></i>
+                        <span>Cold Chain</span>
+                    </a>
+                    <a href="#" class="menu-item" data-section="stock">
+                        <i class="fas fa-boxes"></i>
+                        <span>Stock</span>
+                    </a>
+                    <a href="#" class="menu-item" data-section="reports">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Reports</span>
+                    </a>
+                    <a href="#" class="menu-item" data-section="settings">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                    </a>
+                </div>
+                
+                <div class="sidebar-footer">
+                    <div class="sync-status">
+                        <i class="fas fa-wifi" id="sync-icon"></i>
+                        <span id="sync-status">Online</span>
+                    </div>
+                    <button class="btn-sync" id="sync-now">
+                        <i class="fas fa-sync"></i>
+                        Sync
+                    </button>
+                </div>
+            </nav>
+            
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- Overview Section -->
+                <section id="overview-section" class="content-section active">
+                    <div class="section-header">
+                        <h2>Dashboard Overview</h2>
+                        <div class="date-filter">
+                            <select id="period-select">
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month" selected>This Month</option>
+                                <option value="year">This Year</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon total-children">
+                                <i class="fas fa-child"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="total-children">0</h3>
+                                <p>Total Children</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon vaccinated">
+                                <i class="fas fa-syringe"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="vaccinated-today">0</h3>
+                                <p>Vaccinated Today</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon defaulters">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="total-defaulters">0</h3>
+                                <p>Defaulters</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon drop-out">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="dropout-rate">0%</h3>
+                                <p>Drop-out Rate</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h3>Vaccination Coverage</h3>
+                            <div class="chart-container">
+                                <canvas id="coverage-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-card">
+                            <h3>Defaulter Trend</h3>
+                            <div class="chart-container">
+                                <canvas id="defaulter-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="quick-actions">
+                        <h3>Quick Actions</h3>
+                        <div class="actions-grid">
+                            <button class="action-btn" id="add-child-btn">
+                                <i class="fas fa-user-plus"></i>
+                                Add New Child
+                            </button>
+                            <button class="action-btn" id="record-vaccination-btn">
+                                <i class="fas fa-syringe"></i>
+                                Record Vaccination
+                            </button>
+                            <button class="action-btn" id="generate-report-btn">
+                                <i class="fas fa-file-pdf"></i>
+                                Generate Report
+                            </button>
+                            <button class="action-btn" id="check-stock-btn">
+                                <i class="fas fa-box-open"></i>
+                                Check Stock
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="recent-activity">
+                        <h3>Recent Activity</h3>
+                        <div class="activity-list" id="activity-list">
+                            <div class="activity-item">
+                                <i class="fas fa-syringe activity-icon"></i>
+                                <div class="activity-details">
+                                    <p>Penta1 administered to John Doe</p>
+                                    <span class="activity-time">2 hours ago</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Children Management Section -->
+                <section id="children-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Children Management</h2>
+                        <button class="btn-primary" id="add-child-modal-btn">
+                            <i class="fas fa-plus"></i> Add Child
+                        </button>
+                    </div>
+                    
+                    <div class="filters">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="child-search" placeholder="Search children...">
+                        </div>
+                        <div class="filter-options">
+                            <select id="age-filter">
+                                <option value="">All Ages</option>
+                                <option value="0-1">0-1 year</option>
+                                <option value="1-5">1-5 years</option>
+                                <option value="5+">5+ years</option>
+                            </select>
+                            <select id="status-filter">
+                                <option value="">All Status</option>
+                                <option value="up-to-date">Up to Date</option>
+                                <option value="defaulters">Defaulters</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Child ID</th>
+                                    <th>Name</th>
+                                    <th>Age</th>
+                                    <th>Gender</th>
+                                    <th>Last Vaccination</th>
+                                    <th>Next Due</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="children-table-body">
+                                <!-- Children data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="pagination">
+                        <button class="btn-pagination" id="prev-page">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span id="page-info">Page 1 of 1</span>
+                        <button class="btn-pagination" id="next-page">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </section>
+                
+                <!-- Vaccinations Section -->
+                <section id="vaccinations-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Vaccination Schedule</h2>
+                        <div class="vaccine-filter">
+                            <select id="vaccine-type-filter">
+                                <option value="">All Vaccines</option>
+                                <option value="birth">Birth Vaccines</option>
+                                <option value="6weeks">6 Weeks</option>
+                                <option value="10weeks">10 Weeks</option>
+                                <option value="14weeks">14 Weeks</option>
+                                <option value="6months">6 Months</option>
+                                <option value="9months">9 Months</option>
+                                <option value="18months">18 Months</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="vaccine-schedule">
+                        <!-- Vaccine schedule will be loaded here -->
+                    </div>
+                    
+                    <div class="upcoming-vaccinations">
+                        <h3>Upcoming Vaccinations (Next 7 Days)</h3>
+                        <div class="upcoming-list" id="upcoming-list">
+                            <!-- Upcoming vaccinations will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Defaulters Section -->
+                <section id="defaulters-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Defaulter Tracking</h2>
+                        <button class="btn-danger" id="send-reminders-btn">
+                            <i class="fas fa-bell"></i> Send Reminders
+                        </button>
+                    </div>
+                    
+                    <div class="defaulter-stats">
+                        <div class="defaulter-stat">
+                            <h4>Penta1 → Penta3</h4>
+                            <div class="dropout-rate">
+                                <span id="penta-dropout">0%</span>
+                                <div class="rate-bar">
+                                    <div class="rate-fill" id="penta-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="defaulter-stat">
+                            <h4>BCG → Measles Rubella 1</h4>
+                            <div class="dropout-rate">
+                                <span id="bcg-dropout">0%</span>
+                                <div class="rate-bar">
+                                    <div class="rate-fill" id="bcg-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="defaulter-stat">
+                            <h4>MR1 → MR2</h4>
+                            <div class="dropout-rate">
+                                <span id="mr-dropout">0%</span>
+                                <div class="rate-bar">
+                                    <div class="rate-fill" id="mr-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="defaulter-list">
+                        <h3>Defaulters List</h3>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Child Name</th>
+                                        <th>Missing Vaccine</th>
+                                        <th>Days Overdue</th>
+                                        <th>Contact</th>
+                                        <th>Follow-up</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="defaulters-table-body">
+                                    <!-- Defaulters data will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Cold Chain Section -->
+                <section id="cold-chain-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Cold Chain Monitoring</h2>
+                        <button class="btn-primary" id="add-temperature-btn">
+                            <i class="fas fa-plus"></i> Record Temperature
+                        </button>
+                    </div>
+                    
+                    <div class="temperature-monitor">
+                        <div class="temp-status">
+                            <div class="temp-gauge">
+                                <div class="gauge">
+                                    <div class="gauge-fill" id="gauge-fill"></div>
+                                    <div class="gauge-value">
+                                        <span id="current-temp">--</span>
+                                        <span class="gauge-unit">°C</span>
+                                    </div>
+                                </div>
+                                <div class="temp-range">
+                                    <span class="min-temp">2°C</span>
+                                    <span class="max-temp">8°C</span>
+                                </div>
+                            </div>
+                            <div class="temp-info">
+                                <h3 id="cold-chain-status">Status: Monitoring</h3>
+                                <p>Last Updated: <span id="last-temp-update">--</span></p>
+                                <p>Facility: <span id="cold-chain-facility">--</span></p>
+                            </div>
+                        </div>
+                        
+                        <div class="temp-history">
+                            <h3>Temperature History (Last 24 Hours)</h3>
+                            <div class="chart-container">
+                                <canvas id="temperature-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alerts-panel">
+                        <h3>Cold Chain Alerts</h3>
+                        <div class="alerts-list" id="cold-chain-alerts">
+                            <!-- Alerts will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Stock Management Section -->
+                <section id="stock-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Vaccine Stock Management</h2>
+                        <button class="btn-primary" id="update-stock-btn">
+                            <i class="fas fa-edit"></i> Update Stock
+                        </button>
+                    </div>
+                    
+                    <div class="stock-summary">
+                        <div class="stock-card low-stock">
+                            <h3>Low Stock</h3>
+                            <div class="stock-count" id="low-stock-count">0</div>
+                            <p>Vaccines need replenishment</p>
+                        </div>
+                        <div class="stock-card adequate-stock">
+                            <h3>Adequate Stock</h3>
+                            <div class="stock-count" id="adequate-stock-count">0</div>
+                            <p>Vaccines in good supply</p>
+                        </div>
+                        <div class="stock-card expired-stock">
+                            <h3>Expired/Near Expiry</h3>
+                            <div class="stock-count" id="expired-stock-count">0</div>
+                            <p>Requires attention</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stock-table">
+                        <h3>Vaccine Stock Details</h3>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Vaccine</th>
+                                        <th>Current Stock</th>
+                                        <th>Monthly Usage</th>
+                                        <th>Reorder Level</th>
+                                        <th>Expiry Date</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stock-table-body">
+                                    <!-- Stock data will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="stock-alerts">
+                        <h3>Supply Chain Alerts</h3>
+                        <div class="alerts-list" id="stock-alerts">
+                            <!-- Stock alerts will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Reports Section -->
+                <section id="reports-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Reporting System</h2>
+                        <button class="btn-success" id="generate-pdf-btn">
+                            <i class="fas fa-file-pdf"></i> Generate PDF
+                        </button>
+                    </div>
+                    
+                    <div class="report-options">
+                        <div class="report-type">
+                            <h3>Report Type</h3>
+                            <div class="type-options">
+                                <label class="radio-option">
+                                    <input type="radio" name="report-type" value="weekly" checked>
+                                    <span>Weekly Report</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="report-type" value="monthly">
+                                    <span>Monthly Report</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="report-type" value="yearly">
+                                    <span>Yearly Report</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="report-type" value="custom">
+                                    <span>Custom Date Range</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="date-range">
+                            <h3>Date Range</h3>
+                            <div class="date-inputs">
+                                <div class="date-input">
+                                    <label>From</label>
+                                    <input type="date" id="report-from-date" value="">
+                                </div>
+                                <div class="date-input">
+                                    <label>To</label>
+                                    <input type="date" id="report-to-date" value="">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="report-actions">
+                            <button class="btn-primary" id="preview-report-btn">
+                                <i class="fas fa-eye"></i> Preview Report
+                            </button>
+                            <button class="btn-success" id="export-csv-btn">
+                                <i class="fas fa-file-csv"></i> Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="report-preview" id="report-preview">
+                        <h3>Report Preview</h3>
+                        <div class="preview-content" id="preview-content">
+                            <!-- Report preview will be shown here -->
+                        </div>
+                    </div>
+                    
+                    <div class="saved-reports">
+                        <h3>Saved Reports</h3>
+                        <div class="reports-list" id="saved-reports-list">
+                            <!-- Saved reports will be listed here -->
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Settings Section -->
+                <section id="settings-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Settings</h2>
+                    </div>
+                    
+                    <div class="settings-container">
+                        <div class="settings-card">
+                            <h3><i class="fas fa-user-cog"></i> User Profile</h3>
+                            <div class="setting-item">
+                                <label>Email Address</label>
+                                <input type="email" id="profile-email" disabled>
+                            </div>
+                            <div class="setting-item">
+                                <label>Full Name</label>
+                                <input type="text" id="profile-name">
+                            </div>
+                            <div class="setting-item">
+                                <label>Phone Number</label>
+                                <input type="tel" id="profile-phone">
+                            </div>
+                            <button class="btn-primary" id="update-profile-btn">
+                                Update Profile
+                            </button>
+                        </div>
+                        
+                        <div class="settings-card">
+                            <h3><i class="fas fa-shield-alt"></i> Security</h3>
+                            <div class="setting-item">
+                                <label>Current Password</label>
+                                <input type="password" id="current-password">
+                            </div>
+                            <div class="setting-item">
+                                <label>New Password</label>
+                                <input type="password" id="new-password">
+                            </div>
+                            <div class="setting-item">
+                                <label>Confirm New Password</label>
+                                <input type="password" id="confirm-password">
+                            </div>
+                            <button class="btn-primary" id="change-password-btn">
+                                Change Password
+                            </button>
+                        </div>
+                        
+                        <div class="settings-card">
+                            <h3><i class="fas fa-bell"></i> Notifications</h3>
+                            <div class="setting-item toggle">
+                                <label>Email Notifications</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="email-notifications" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item toggle">
+                                <label>Defaulter Alerts</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="defaulter-alerts" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item toggle">
+                                <label>Stock Alerts</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="stock-alerts-toggle" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-card">
+                            <h3><i class="fas fa-tools"></i> Application</h3>
+                            <div class="setting-item">
+                                <label>Language</label>
+                                <select id="language-select">
+                                    <option value="en">English</option>
+                                    <option value="es">Español</option>
+                                    <option value="fr">Français</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <label>Date Format</label>
+                                <select id="date-format">
+                                    <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                                    <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                                    <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                                </select>
+                            </div>
+                            <button class="btn-secondary" id="clear-cache-btn">
+                                Clear Cache
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard (Simplified for this example) -->
+    <div id="admin-dashboard" class="screen">
+        <div class="admin-container">
+            <h1>Admin Dashboard</h1>
+            <p>This is a placeholder for the admin dashboard.</p>
+            <button id="admin-logout" class="btn-primary">Logout</button>
+        </div>
+    </div>
+
+    <!-- Super Admin Dashboard (Simplified for this example) -->
+    <div id="superadmin-dashboard" class="screen">
+        <div class="superadmin-container">
+            <h1>Super Admin Dashboard</h1>
+            <p>This is a placeholder for the super admin dashboard.</p>
+            <button id="superadmin-logout" class="btn-primary">Logout</button>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="add-child-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Child</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-child-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="child-first-name">First Name *</label>
+                            <input type="text" id="child-first-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="child-last-name">Last Name *</label>
+                            <input type="text" id="child-last-name" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="child-dob">Date of Birth *</label>
+                            <input type="date" id="child-dob" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="child-gender">Gender *</label>
+                            <select id="child-gender" required>
+                                <option value="">Select Gender</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="child-parent">Parent/Guardian Name *</label>
+                        <input type="text" id="child-parent" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="child-phone">Phone Number</label>
+                            <input type="tel" id="child-phone">
+                        </div>
+                        <div class="form-group">
+                            <label for="child-address">Address</label>
+                            <input type="text" id="child-address">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="child-notes">Notes</label>
+                        <textarea id="child-notes" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary close-modal">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Child</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Record Vaccination Modal -->
+    <div id="record-vaccination-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Record Vaccination</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="record-vaccination-form">
+                    <div class="form-group">
+                        <label for="vaccination-child">Select Child *</label>
+                        <select id="vaccination-child" required>
+                            <option value="">Select a child</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vaccination-type">Vaccine *</label>
+                        <select id="vaccination-type" required>
+                            <option value="">Select vaccine</option>
+                            <!-- Vaccine options will be populated -->
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vaccination-date">Date Administered *</label>
+                            <input type="date" id="vaccination-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="vaccination-batch">Batch Number</label>
+                            <input type="text" id="vaccination-batch">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vaccination-location">Administration Site</label>
+                            <input type="text" id="vaccination-location">
+                        </div>
+                        <div class="form-group">
+                            <label for="vaccination-provider">Health Worker</label>
+                            <input type="text" id="vaccination-provider">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vaccination-notes">Notes</label>
+                        <textarea id="vaccination-notes" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary close-modal">Cancel</button>
+                        <button type="submit" class="btn-primary">Record Vaccination</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Install PWA Prompt -->
+    <div id="install-prompt" class="install-prompt">
+        <div class="install-content">
+            <i class="fas fa-mobile-alt"></i>
+            <div class="install-text">
+                <h3>Install Immunization Tracker</h3>
+                <p>Install this app on your device for easy access and offline use.</p>
+            </div>
+            <div class="install-actions">
+                <button id="install-cancel" class="btn-secondary">Not Now</button>
+                <button id="install-confirm" class="btn-primary">Install</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Offline Notification -->
+    <div id="offline-notification" class="offline-notification">
+        <i class="fas fa-wifi-slash"></i>
+        <span>You are currently offline. Some features may be limited.</span>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner-large"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+    <script>
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+        
+        // Handle before install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            setTimeout(() => {
+                if (deferredPrompt) {
+                    document.getElementById('install-prompt').classList.add('show');
+                }
+            }, 3000);
+        });
+        
+        document.getElementById('install-confirm').addEventListener('click', () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    }
+                    deferredPrompt = null;
+                    document.getElementById('install-prompt').classList.remove('show');
+                });
+            }
+        });
+        
+        document.getElementById('install-cancel').addEventListener('click', () => {
+            document.getElementById('install-prompt').classList.remove('show');
+        });
+        
+        // Check online/offline status
+        window.addEventListener('online', () => {
+            document.getElementById('offline-notification').classList.remove('show');
+            document.getElementById('sync-status').textContent = 'Online';
+            document.getElementById('sync-icon').className = 'fas fa-wifi';
+        });
+        
+        window.addEventListener('offline', () => {
+            document.getElementById('offline-notification').classList.add('show');
+            document.getElementById('sync-status').textContent = 'Offline';
+            document.getElementById('sync-icon').className = 'fas fa-wifi-slash';
+        });
+    </script>
+</body>
+</html>
