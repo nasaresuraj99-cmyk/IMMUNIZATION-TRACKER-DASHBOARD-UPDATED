@@ -1,0 +1,967 @@
+class ImmunizationTracker {
+    constructor() {
+        this.currentUser = null;
+        this.userRole = null;
+        this.currentFacility = null;
+        this.offlineQueue = [];
+        this.isOnline = navigator.onLine;
+        this.currentView = 'dashboard';
+        
+        // IA2030 Vaccine Schedule
+        this.vaccineSchedule = {
+            'at-birth': [
+                { antigen: 'BCG', minAge: 0, maxAge: 0, doses: 1 },
+                { antigen: 'OPV0', minAge: 0, maxAge: 0, doses: 1 },
+                { antigen: 'Hepatitis B', minAge: 0, maxAge: 0, doses: 1 }
+            ],
+            '6-weeks': [
+                { antigen: 'OPV1', minAge: 42, maxAge: 70, doses: 1 },
+                { antigen: 'Penta1', minAge: 42, maxAge: 70, doses: 1 },
+                { antigen: 'PCV1', minAge: 42, maxAge: 70, doses: 1 },
+                { antigen: 'Rotavirus1', minAge: 42, maxAge: 70, doses: 1 }
+            ],
+            '10-weeks': [
+                { antigen: 'OPV2', minAge: 70, maxAge: 98, doses: 1 },
+                { antigen: 'Penta2', minAge: 70, maxAge: 98, doses: 1 },
+                { antigen: 'PCV2', minAge: 70, maxAge: 98, doses: 1 },
+                { antigen: 'Rotavirus2', minAge: 70, maxAge: 98, doses: 1 }
+            ],
+            '14-weeks': [
+                { antigen: 'OPV3', minAge: 98, maxAge: 126, doses: 1 },
+                { antigen: 'Penta3', minAge: 98, maxAge: 126, doses: 1 },
+                { antigen: 'PCV3', minAge: 98, maxAge: 126, doses: 1 },
+                { antigen: 'Rotavirus3', minAge: 98, maxAge: 126, doses: 1 },
+                { antigen: 'IPV1', minAge: 98, maxAge: 126, doses: 1 }
+            ],
+            '6-12-months': [
+                { antigen: 'Malaria1', minAge: 180, maxAge: 210, doses: 1 },
+                { antigen: 'Vitamin A (6m)', minAge: 180, maxAge: 210, doses: 1 },
+                { antigen: 'Malaria2', minAge: 210, maxAge: 240, doses: 1 },
+                { antigen: 'IPV2', minAge: 210, maxAge: 240, doses: 1 },
+                { antigen: 'Malaria3', minAge: 270, maxAge: 300, doses: 1 },
+                { antigen: 'Measles-Rubella1', minAge: 270, maxAge: 300, doses: 1 },
+                { antigen: 'Vitamin A (12m)', minAge: 365, maxAge: 395, doses: 1 }
+            ],
+            '18-months': [
+                { antigen: 'Malaria4', minAge: 540, maxAge: 600, doses: 1 },
+                { antigen: 'Measles-Rubella2', minAge: 540, maxAge: 600, doses: 1 },
+                { antigen: 'LLIN', minAge: 540, maxAge: 600, doses: 1 },
+                { antigen: 'Men A', minAge: 540, maxAge: 600, doses: 1 },
+                { antigen: 'Vitamin A (18m)', minAge: 540, maxAge: 600, doses: 1 }
+            ],
+            '2-5-years': [
+                { antigen: 'Vitamin A (24m)', minAge: 730, maxAge: 790, doses: 1 },
+                { antigen: 'Vitamin A (30m)', minAge: 912, maxAge: 972, doses: 1 },
+                { antigen: 'Vitamin A (36m)', minAge: 1095, maxAge: 1155, doses: 1 },
+                { antigen: 'Vitamin A (42m)', minAge: 1278, maxAge: 1338, doses: 1 },
+                { antigen: 'Vitamin A (48m)', minAge: 1461, maxAge: 1521, doses: 1 },
+                { antigen: 'Vitamin A (54m)', minAge: 1644, maxAge: 1704, doses: 1 },
+                { antigen: 'Vitamin A (60m)', minAge: 1826, maxAge: 1886, doses: 1 }
+            ]
+        };
+
+        this.init();
+    }
+
+    async init() {
+        this.setupEventListeners();
+        this.setupNetworkListener();
+        this.checkAuthState();
+        this.setupServiceWorker();
+        this.generateChildID();
+    }
+
+    setupEventListeners() {
+        // Menu toggle
+        document.getElementById('menu-toggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+            document.getElementById('main-content').classList.toggle('full-width');
+        });
+
+        // Sidebar navigation
+        document.querySelectorAll('.sidebar-menu a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const view = link.getAttribute('href').substring(1);
+                this.switchView(view);
+                
+                // Update active state
+                document.querySelectorAll('.sidebar-menu a').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
+        });
+
+        // Login form
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleLogin();
+        });
+
+        // Register form
+        document.getElementById('register-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleRegistration();
+        });
+
+        // Navigation between login/register
+        document.getElementById('register-link').addEventListener('click', () => {
+            this.showModal('register-modal');
+        });
+
+        document.getElementById('back-to-login').addEventListener('click', () => {
+            this.showModal('login-modal');
+        });
+
+        // Logout
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            this.handleLogout();
+        });
+
+        // Child registration
+        document.getElementById('child-registration-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.registerChild();
+        });
+
+        // Generate schedule
+        document.getElementById('generate-schedule').addEventListener('click', () => {
+            this.generateVaccineSchedule();
+        });
+
+        // Install PWA
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('install-btn').classList.remove('hidden');
+            
+            document.getElementById('install-btn').addEventListener('click', async () => {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    document.getElementById('install-btn').classList.add('hidden');
+                }
+                deferredPrompt = null;
+            });
+        });
+
+        // Generate child ID when facility code changes
+        document.getElementById('facility-code').addEventListener('input', () => {
+            this.generateChildID();
+        });
+
+        // DOB change triggers schedule generation
+        document.getElementById('child-dob').addEventListener('change', () => {
+            this.generateChildID();
+        });
+
+        // Vaccination form
+        document.getElementById('vaccination-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.recordVaccination();
+        });
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.getAttribute('data-tab');
+                this.switchTab(tabId);
+            });
+        });
+
+        // Refresh dashboard
+        document.getElementById('refresh-dashboard').addEventListener('click', () => {
+            this.loadDashboardData();
+        });
+
+        // Search functionality
+        document.getElementById('search-children').addEventListener('input', (e) => {
+            this.searchChildren(e.target.value);
+        });
+    }
+
+    setupNetworkListener() {
+        window.addEventListener('online', () => {
+            this.isOnline = true;
+            this.updateConnectionStatus();
+            this.syncOfflineData();
+        });
+
+        window.addEventListener('offline', () => {
+            this.isOnline = false;
+            this.updateConnectionStatus();
+        });
+
+        this.updateConnectionStatus();
+    }
+
+    updateConnectionStatus() {
+        const statusElement = document.getElementById('connection-status');
+        if (this.isOnline) {
+            statusElement.innerHTML = '<i class="fas fa-wifi"></i> Online';
+            statusElement.classList.add('online');
+            statusElement.classList.remove('offline');
+        } else {
+            statusElement.innerHTML = '<i class="fas fa-wifi-slash"></i> Offline';
+            statusElement.classList.add('offline');
+            statusElement.classList.remove('online');
+        }
+    }
+
+    async checkAuthState() {
+        try {
+            const auth = window.firebase.auth;
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // User is signed in
+                    await this.loadUserData(user.uid);
+                    this.hideModal('login-modal');
+                    document.getElementById('app-container').classList.remove('hidden');
+                    document.getElementById('loading-screen').style.display = 'none';
+                    
+                    // Set user role class on body for admin-only elements
+                    document.body.classList.add(`user-role-${this.userRole}`);
+                    
+                    this.loadDashboardData();
+                } else {
+                    // No user is signed in
+                    this.showModal('login-modal');
+                    document.getElementById('app-container').classList.add('hidden');
+                }
+            });
+        } catch (error) {
+            this.showNotification('Error checking authentication state', 'error');
+        }
+    }
+
+    async loadUserData(userId) {
+        try {
+            const db = window.firebase.db;
+            const docRef = window.firebase.doc(db, "users", userId);
+            // In real implementation, you would fetch from Firestore
+            // For now, simulate user data
+            this.currentUser = {
+                uid: userId,
+                email: 'user@example.com',
+                name: 'Health Worker',
+                role: 'user',
+                facility: 'FAC001'
+            };
+            
+            this.userRole = this.currentUser.role;
+            this.currentFacility = this.currentUser.facility;
+            
+            // Update UI
+            document.getElementById('current-user').textContent = this.currentUser.name;
+            document.getElementById('sidebar-username').textContent = this.currentUser.name;
+            document.getElementById('sidebar-facility').textContent = `Facility: ${this.currentFacility}`;
+            
+            const roleBadge = document.getElementById('user-role-badge');
+            roleBadge.textContent = this.userRole.replace('_', ' ').toUpperCase();
+            roleBadge.setAttribute('data-role', this.userRole);
+            
+        } catch (error) {
+            console.error('Error loading user data:', error);
+        }
+    }
+
+    async handleLogin() {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const errorElement = document.getElementById('login-error');
+        
+        try {
+            const auth = window.firebase.auth;
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            
+            if (!userCredential.user.emailVerified) {
+                this.showNotification('Please verify your email before logging in', 'warning');
+                await signOut(auth);
+                return;
+            }
+            
+            this.showNotification('Login successful!', 'success');
+            errorElement.classList.add('hidden');
+            
+        } catch (error) {
+            errorElement.textContent = 'Invalid email or password';
+            errorElement.classList.remove('hidden');
+            this.showNotification('Login failed. Please check your credentials.', 'error');
+        }
+    }
+
+    async handleRegistration() {
+        const name = document.getElementById('reg-name').value;
+        const email = document.getElementById('reg-email').value;
+        const password = document.getElementById('reg-password').value;
+        const confirmPassword = document.getElementById('reg-confirm').value;
+        const role = document.getElementById('reg-role').value;
+        const phone = document.getElementById('reg-phone').value;
+        const facilities = Array.from(document.getElementById('reg-facilities').selectedOptions)
+            .map(option => option.value);
+        
+        const errorElement = document.getElementById('register-error');
+        
+        // Validation
+        if (password !== confirmPassword) {
+            errorElement.textContent = 'Passwords do not match';
+            errorElement.classList.remove('hidden');
+            return;
+        }
+        
+        if (password.length < 6) {
+            errorElement.textContent = 'Password must be at least 6 characters';
+            errorElement.classList.remove('hidden');
+            return;
+        }
+        
+        try {
+            const auth = window.firebase.auth;
+            const db = window.firebase.db;
+            
+            // Create user in Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const userId = userCredential.user.uid;
+            
+            // Send email verification
+            // await sendEmailVerification(userCredential.user);
+            
+            // Create user document in Firestore
+            await window.firebase.setDoc(window.firebase.doc(db, "users", userId), {
+                name: name,
+                email: email,
+                phone: phone,
+                role: role,
+                facilities: facilities,
+                status: 'pending', // Pending super admin approval
+                createdAt: window.firebase.serverTimestamp(),
+                lastLogin: window.firebase.serverTimestamp()
+            });
+            
+            // Create facility assignments
+            for (const facilityId of facilities) {
+                await window.firebase.addDoc(window.firebase.collection(db, "facility_assignments"), {
+                    userId: userId,
+                    facilityId: facilityId,
+                    role: role,
+                    assignedAt: window.firebase.serverTimestamp()
+                });
+            }
+            
+            // Send notification to super admin for approval
+            await window.firebase.addDoc(window.firebase.collection(db, "notifications"), {
+                type: 'new_user_approval',
+                userId: userId,
+                userName: name,
+                role: role,
+                facilities: facilities,
+                createdAt: window.firebase.serverTimestamp(),
+                read: false
+            });
+            
+            errorElement.classList.add('hidden');
+            this.showNotification('Registration successful! Your account is pending approval from super admin.', 'success');
+            
+            // Switch back to login
+            this.showModal('login-modal');
+            document.getElementById('register-form').reset();
+            
+        } catch (error) {
+            errorElement.textContent = error.message;
+            errorElement.classList.remove('hidden');
+            this.showNotification('Registration failed: ' + error.message, 'error');
+        }
+    }
+
+    async handleLogout() {
+        try {
+            const auth = window.firebase.auth;
+            await signOut(auth);
+            this.showNotification('Logged out successfully', 'success');
+            document.body.classList.remove(`user-role-${this.userRole}`);
+        } catch (error) {
+            this.showNotification('Logout failed: ' + error.message, 'error');
+        }
+    }
+
+    switchView(viewId) {
+        // Hide all views
+        document.querySelectorAll('.view').forEach(view => {
+            view.classList.remove('active');
+        });
+        
+        // Show selected view
+        const viewElement = document.getElementById(`${viewId}-view`);
+        if (viewElement) {
+            viewElement.classList.add('active');
+            this.currentView = viewId;
+            
+            // Load data for the view
+            switch(viewId) {
+                case 'dashboard':
+                    this.loadDashboardData();
+                    break;
+                case 'children-list':
+                    this.loadChildrenList();
+                    break;
+                case 'reports':
+                    this.loadReports();
+                    break;
+                case 'stock':
+                    this.loadStockData();
+                    break;
+                case 'admin':
+                    if (this.userRole === 'admin' || this.userRole === 'super_admin') {
+                        this.loadAdminPanel();
+                    }
+                    break;
+            }
+        }
+    }
+
+    switchTab(tabId) {
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Deactivate all tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Activate selected tab
+        const tabContent = document.getElementById(tabId);
+        const tabButton = document.querySelector(`[data-tab="${tabId}"]`);
+        
+        if (tabContent && tabButton) {
+            tabContent.classList.add('active');
+            tabButton.classList.add('active');
+        }
+    }
+
+    generateChildID() {
+        const facilityCode = document.getElementById('facility-code').value.toUpperCase().replace(/\s/g, '');
+        const dobInput = document.getElementById('child-dob').value;
+        
+        if (facilityCode && dobInput) {
+            const year = new Date(dobInput).getFullYear();
+            const uniqueNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+            const childId = `${facilityCode}-${year}-${uniqueNum}`;
+            document.getElementById('child-id').value = childId;
+        }
+    }
+
+    async registerChild() {
+        const formData = {
+            childId: document.getElementById('child-id').value,
+            name: document.getElementById('child-name').value,
+            dob: document.getElementById('child-dob').value,
+            gender: document.getElementById('child-gender').value,
+            motherName: document.getElementById('mother-name').value,
+            fatherName: document.getElementById('father-name').value,
+            phone: document.getElementById('phone-number').value,
+            address: document.getElementById('address').value,
+            facilityCode: document.getElementById('facility-code').value,
+            registeredBy: this.currentUser.uid,
+            registeredAt: new Date().toISOString(),
+            status: 'active'
+        };
+        
+        try {
+            const db = window.firebase.db;
+            
+            // Check if child already exists
+            const childrenRef = window.firebase.collection(db, "children");
+            const q = window.firebase.query(
+                childrenRef,
+                window.firebase.where("childId", "==", formData.childId)
+            );
+            
+            const querySnapshot = await window.firebase.getDocs(q);
+            
+            if (!querySnapshot.empty) {
+                this.showNotification('Child with this ID already exists', 'error');
+                return;
+            }
+            
+            // Add child to Firestore
+            await window.firebase.addDoc(childrenRef, formData);
+            
+            // Generate and store vaccine schedule
+            await this.generateAndStoreVaccineSchedule(formData);
+            
+            // Log the action
+            await this.logAction('child_registered', {
+                childId: formData.childId,
+                childName: formData.name
+            });
+            
+            this.showNotification('Child registered successfully!', 'success');
+            document.getElementById('child-registration-form').reset();
+            document.getElementById('schedule-preview').classList.add('hidden');
+            
+            // Switch to children list view
+            this.switchView('children-list');
+            
+        } catch (error) {
+            console.error('Error registering child:', error);
+            this.showNotification('Failed to register child: ' + error.message, 'error');
+            
+            // Store in offline queue if online
+            if (!this.isOnline) {
+                this.offlineQueue.push({
+                    type: 'register_child',
+                    data: formData,
+                    timestamp: new Date().toISOString()
+                });
+                this.saveOfflineData();
+                this.showNotification('Child saved offline. Will sync when online.', 'warning');
+            }
+        }
+    }
+
+    generateVaccineSchedule() {
+        const dob = document.getElementById('child-dob').value;
+        if (!dob) {
+            this.showNotification('Please enter date of birth first', 'warning');
+            return;
+        }
+        
+        const dobDate = new Date(dob);
+        const scheduleBody = document.getElementById('schedule-body');
+        scheduleBody.innerHTML = '';
+        
+        // Generate schedule for all age groups
+        Object.entries(this.vaccineSchedule).forEach(([ageGroup, vaccines]) => {
+            vaccines.forEach(vaccine => {
+                const dueDate = new Date(dobDate);
+                dueDate.setDate(dueDate.getDate() + vaccine.minAge);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${ageGroup.replace('-', ' ').toUpperCase()}</td>
+                    <td><strong>${vaccine.antigen}</strong></td>
+                    <td>${dueDate.toLocaleDateString()}</td>
+                    <td><span class="status-badge status-due-soon">PENDING</span></td>
+                `;
+                scheduleBody.appendChild(row);
+            });
+        });
+        
+        document.getElementById('schedule-preview').classList.remove('hidden');
+    }
+
+    async generateAndStoreVaccineSchedule(childData) {
+        const db = window.firebase.db;
+        const dobDate = new Date(childData.dob);
+        
+        const schedulePromises = [];
+        
+        // Generate schedule entries for all vaccines
+        Object.entries(this.vaccineSchedule).forEach(([ageGroup, vaccines]) => {
+            vaccines.forEach(vaccine => {
+                const dueDate = new Date(dobDate);
+                dueDate.setDate(dueDate.getDate() + vaccine.minAge);
+                
+                const scheduleEntry = {
+                    childId: childData.childId,
+                    childName: childData.name,
+                    antigen: vaccine.antigen,
+                    ageGroup: ageGroup,
+                    dueDate: dueDate.toISOString(),
+                    status: 'pending',
+                    dosesRequired: vaccine.doses,
+                    dosesGiven: 0,
+                    facilityCode: childData.facilityCode,
+                    createdAt: new Date().toISOString()
+                };
+                
+                // Add to Firestore
+                schedulePromises.push(
+                    window.firebase.addDoc(
+                        window.firebase.collection(db, "vaccine_schedule"),
+                        scheduleEntry
+                    )
+                );
+            });
+        });
+        
+        await Promise.all(schedulePromises);
+    }
+
+    async loadDashboardData() {
+        try {
+            // Load counts
+            await this.loadDashboardCounts();
+            
+            // Load charts
+            await this.loadCharts();
+            
+            // Load defaulters
+            await this.loadDefaulters();
+            
+            // Load stock alerts
+            await this.loadStockAlerts();
+            
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+        }
+    }
+
+    async loadDashboardCounts() {
+        // Simulate data - in real app, fetch from Firestore
+        document.getElementById('overdue-count').textContent = '12';
+        document.getElementById('due-soon-count').textContent = '8';
+        document.getElementById('total-children').textContent = '156';
+        document.getElementById('vaccines-administered').textContent = '842';
+    }
+
+    async loadCharts() {
+        // Coverage Chart
+        const coverageCtx = document.getElementById('coverage-chart').getContext('2d');
+        new Chart(coverageCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Vaccination Coverage %',
+                    data: [85, 88, 92, 90, 89, 93],
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true
+                    }
+                }
+            }
+        });
+        
+        // Dropout Chart
+        const dropoutCtx = document.getElementById('dropout-chart').getContext('2d');
+        new Chart(dropoutCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Penta1→3', 'BCG→MR1', 'MR1→MR2'],
+                datasets: [{
+                    label: 'Dropout Rate %',
+                    data: [4.2, 6.8, 3.5],
+                    backgroundColor: [
+                        '#e74c3c',
+                        '#f39c12',
+                        '#3498db'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 10
+                    }
+                }
+            }
+        });
+    }
+
+    async loadDefaulters() {
+        const tableBody = document.querySelector('#defaulters-table tbody');
+        tableBody.innerHTML = '';
+        
+        // Simulate data
+        const defaulters = [
+            { id: 'FAC001-2023-0012', name: 'John Doe', vaccine: 'Measles-Rubella2', days: 14 },
+            { id: 'FAC001-2023-0034', name: 'Jane Smith', vaccine: 'Penta3', days: 7 },
+            { id: 'FAC001-2023-0056', name: 'Mike Johnson', vaccine: 'Vitamin A (12m)', days: 21 }
+        ];
+        
+        defaulters.forEach(defaulter => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${defaulter.id}</td>
+                <td>${defaulter.name}</td>
+                <td>${defaulter.vaccine}</td>
+                <td><span class="status-badge status-overdue">${defaulter.days} days</span></td>
+                <td>
+                    <button class="btn-icon" onclick="app.contactDefaulter('${defaulter.id}')">
+                        <i class="fas fa-phone"></i>
+                    </button>
+                    <button class="btn-icon" onclick="app.markContacted('${defaulter.id}')">
+                        <i class="fas fa-check"></i>
+                    </button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    async loadStockAlerts() {
+        const alertsContainer = document.getElementById('stock-alerts');
+        alertsContainer.innerHTML = '';
+        
+        // Simulate stock alerts
+        const alerts = [
+            { vaccine: 'BCG', current: 15, min: 50, status: 'low' },
+            { vaccine: 'OPV', current: 32, min: 100, status: 'critical' },
+            { vaccine: 'Measles', current: 45, min: 50, status: 'low' }
+        ];
+        
+        alerts.forEach(alert => {
+            const alertElement = document.createElement('div');
+            alertElement.className = 'alert-item';
+            alertElement.innerHTML = `
+                <div class="alert-content">
+                    <strong>${alert.vaccine}</strong>
+                    <span>Stock: ${alert.current} (Min: ${alert.min})</span>
+                </div>
+                <span class="status-badge ${alert.status === 'critical' ? 'status-overdue' : 'status-due-soon'}">
+                    ${alert.status.toUpperCase()}
+                </span>
+            `;
+            alertsContainer.appendChild(alertElement);
+        });
+    }
+
+    async recordVaccination() {
+        const formData = {
+            childId: document.getElementById('select-child').value,
+            vaccine: document.getElementById('vaccine-type').value,
+            date: document.getElementById('vaccine-date').value,
+            batch: document.getElementById('vaccine-batch').value,
+            vaccinator: document.getElementById('vaccinator').value || this.currentUser.name,
+            notes: document.getElementById('vaccine-notes').value,
+            recordedBy: this.currentUser.uid,
+            recordedAt: new Date().toISOString(),
+            facility: this.currentFacility
+        };
+        
+        try {
+            const db = window.firebase.db;
+            
+            // Record vaccination
+            await window.firebase.addDoc(
+                window.firebase.collection(db, "vaccinations"),
+                formData
+            );
+            
+            // Update vaccine schedule
+            await this.updateVaccineSchedule(formData);
+            
+            // Update stock
+            await this.updateStock(formData.vaccine, formData.batch, -1);
+            
+            // Log action
+            await this.logAction('vaccination_recorded', {
+                childId: formData.childId,
+                vaccine: formData.vaccine,
+                batch: formData.batch
+            });
+            
+            this.showNotification('Vaccination recorded successfully!', 'success');
+            document.getElementById('vaccination-form').reset();
+            
+        } catch (error) {
+            console.error('Error recording vaccination:', error);
+            this.showNotification('Failed to record vaccination: ' + error.message, 'error');
+            
+            if (!this.isOnline) {
+                this.offlineQueue.push({
+                    type: 'record_vaccination',
+                    data: formData,
+                    timestamp: new Date().toISOString()
+                });
+                this.saveOfflineData();
+                this.showNotification('Vaccination saved offline. Will sync when online.', 'warning');
+            }
+        }
+    }
+
+    async updateVaccineSchedule(vaccinationData) {
+        // In real implementation, update the vaccine schedule document
+        // to mark this vaccine as administered
+        console.log('Updating vaccine schedule for:', vaccinationData);
+    }
+
+    async updateStock(vaccine, batchNo, quantityChange) {
+        // In real implementation, update stock levels
+        console.log('Updating stock:', { vaccine, batchNo, quantityChange });
+    }
+
+    async logAction(actionType, details) {
+        try {
+            const db = window.firebase.db;
+            
+            await window.firebase.addDoc(
+                window.firebase.collection(db, "audit_logs"),
+                {
+                    userId: this.currentUser.uid,
+                    userName: this.currentUser.name,
+                    action: actionType,
+                    details: details,
+                    timestamp: window.firebase.serverTimestamp(),
+                    facility: this.currentFacility,
+                    ipAddress: await this.getClientIP()
+                }
+            );
+        } catch (error) {
+            console.error('Error logging action:', error);
+        }
+    }
+
+    async getClientIP() {
+        // This is a simplified version
+        try {
+            const response = await fetch('https://api.ipify.org?format=json');
+            const data = await response.json();
+            return data.ip;
+        } catch (error) {
+            return 'unknown';
+        }
+    }
+
+    async searchChildren(searchTerm) {
+        // In real implementation, search Firestore
+        console.log('Searching for:', searchTerm);
+    }
+
+    showModal(modalId) {
+        document.getElementById(modalId).classList.remove('hidden');
+    }
+
+    hideModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+    }
+
+    showNotification(message, type = 'info') {
+        const container = document.getElementById('notification-container');
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <i class="fas fa-${this.getNotificationIcon(type)}"></i>
+            <span>${message}</span>
+            <button class="btn-icon" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        container.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    getNotificationIcon(type) {
+        const icons = {
+            success: 'check-circle',
+            error: 'exclamation-circle',
+            warning: 'exclamation-triangle',
+            info: 'info-circle'
+        };
+        return icons[type] || 'info-circle';
+    }
+
+    setupServiceWorker() {
+        // Already registered in HTML
+    }
+
+    saveOfflineData() {
+        localStorage.setItem('offlineQueue', JSON.stringify(this.offlineQueue));
+    }
+
+    loadOfflineData() {
+        const saved = localStorage.getItem('offlineQueue');
+        if (saved) {
+            this.offlineQueue = JSON.parse(saved);
+        }
+    }
+
+    async syncOfflineData() {
+        if (this.offlineQueue.length === 0) return;
+        
+        this.showNotification('Syncing offline data...', 'info');
+        
+        for (const item of this.offlineQueue) {
+            try {
+                // Process each offline item
+                switch(item.type) {
+                    case 'register_child':
+                        await this.syncChildRegistration(item.data);
+                        break;
+                    case 'record_vaccination':
+                        await this.syncVaccination(item.data);
+                        break;
+                }
+            } catch (error) {
+                console.error('Error syncing item:', item, error);
+            }
+        }
+        
+        // Clear offline queue
+        this.offlineQueue = [];
+        localStorage.removeItem('offlineQueue');
+        
+        this.showNotification('Offline data synced successfully!', 'success');
+    }
+
+    async syncChildRegistration(childData) {
+        // Sync child registration with server
+        console.log('Syncing child registration:', childData);
+    }
+
+    async syncVaccination(vaccinationData) {
+        // Sync vaccination with server
+        console.log('Syncing vaccination:', vaccinationData);
+    }
+
+    contactDefaulter(childId) {
+        // Implement contact functionality
+        console.log('Contacting defaulter:', childId);
+        this.showNotification(`Contacting defaulter ${childId}...`, 'info');
+    }
+
+    markContacted(childId) {
+        // Mark defaulter as contacted
+        console.log('Marking as contacted:', childId);
+        this.showNotification('Defaulter marked as contacted', 'success');
+    }
+
+    // Additional methods for other views would be implemented here
+    async loadChildrenList() {
+        // Load children list with pagination
+    }
+
+    async loadReports() {
+        // Generate reports
+    }
+
+    async loadStockData() {
+        // Load stock information
+    }
+
+    async loadAdminPanel() {
+        // Load admin panel data
+    }
+}
+
+// Initialize the application when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new ImmunizationTracker();
+});
