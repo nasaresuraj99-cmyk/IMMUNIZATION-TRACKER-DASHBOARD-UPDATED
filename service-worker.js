@@ -1,156 +1,189 @@
-// Service Worker for Immunization Tracker PWA
-const CACHE_NAME = 'immunization-tracker-v1.0.0';
+const CACHE_NAME = 'immunization-tracker-v1';
+const OFFLINE_URL = '/index.html';
+
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/firebase-config.js',
-  '/manifest.json',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js'
+    '/',
+    '/index.html',
+    '/style.css',
+    '/app.js',
+    '/manifest.json',
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+    'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@300;400;500&display=swap'
 ];
 
-// Install event
+// Install Service Worker
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-      .then(() => self.skipWaiting())
-  );
-});
-
-// Activate event
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
-});
-
-// Fetch event - Network first, cache fallback strategy
-self.addEventListener('fetch', event => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
-    return;
-  }
-  
-  // For API calls, use network first
-  if (event.request.url.includes('/api/') || event.request.url.includes('firebaseio.com')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          // Cache the response for offline use
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseClone);
-          });
-          return response;
-        })
-        .catch(() => {
-          // If network fails, try cache
-          return caches.match(event.request);
-        })
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                return cache.addAll(urlsToCache);
+            })
+            .then(() => self.skipWaiting())
     );
-    return;
-  }
-  
-  // For static assets, use cache first
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        
-        // If not in cache, fetch from network
-        return fetch(event.request)
-          .then(response => {
-            // Check if valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-            
-            // Cache the response
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-            
-            return response;
-          });
-      })
-      .catch(() => {
-        // If both cache and network fail, show offline page
-        if (event.request.headers.get('accept').includes('text/html')) {
-          return caches.match('/index.html');
-        }
-      })
-  );
 });
 
-// Background sync for offline data
+// Activate Service Worker
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => self.clients.claim())
+    );
+});
+
+// Fetch Strategy: Cache First, then Network
+self.addEventListener('fetch', event => {
+    // Skip cross-origin requests
+    if (!event.request.url.startsWith(self.location.origin)) {
+        return;
+    }
+
+    // Handle API requests differently
+    if (event.request.url.includes('/api/')) {
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    // Cache the API response
+                    const responseClone = response.clone();
+                    caches.open(CACHE_NAME)
+                        .then(cache => {
+                            cache.put(event.request, responseClone);
+                        });
+                    return response;
+                })
+                .catch(() => {
+                    // Return cached response if network fails
+                    return caches.match(event.request);
+                })
+        );
+    } else {
+        // For non-API requests: Cache First
+        event.respondWith(
+            caches.match(event.request)
+                .then(cachedResponse => {
+                    if (cachedResponse) {
+                        return cachedResponse;
+                    }
+                    
+                    return fetch(event.request)
+                        .then(response => {
+                            // Don't cache if not a valid response
+                            if (!response || response.status !== 200 || response.type !== 'basic') {
+                                return response;
+                            }
+                            
+                            // Clone the response
+                            const responseToCache = response.clone();
+                            
+                            caches.open(CACHE_NAME)
+                                .then(cache => {
+                                    cache.put(event.request, responseToCache);
+                                });
+                            
+                            return response;
+                        })
+                        .catch(() => {
+                            // If offline and page request, return offline page
+                            if (event.request.mode === 'navigate') {
+                                return caches.match(OFFLINE_URL);
+                            }
+                            return new Response('Network error', {
+                                status: 408,
+                                headers: { 'Content-Type': 'text/plain' }
+                            });
+                        });
+                })
+        );
+    }
+});
+
+// Background Sync
 self.addEventListener('sync', event => {
-  if (event.tag === 'sync-vaccinations') {
-    event.waitUntil(syncVaccinations());
-  }
+    if (event.tag === 'sync-data') {
+        event.waitUntil(syncData());
+    }
 });
 
-async function syncVaccinations() {
-  // This would sync offline vaccinations with Firebase
-  console.log('Syncing vaccinations in background...');
-}
-
-// Push notifications
+// Push Notifications
 self.addEventListener('push', event => {
-  const options = {
-    body: event.data ? event.data.text() : 'New update from Immunization Tracker',
-    icon: '/assets/icons/icon-192x192.png',
-    badge: '/assets/icons/icon-72x72.png',
-    vibrate: [100, 50, 100],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1
-    },
-    actions: [
-      {
-        action: 'open',
-        title: 'Open App'
-      },
-      {
-        action: 'close',
-        title: 'Close'
-      }
-    ]
-  };
-  
-  event.waitUntil(
-    self.registration.showNotification('Immunization Tracker', options)
-  );
+    if (!event.data) return;
+    
+    const data = event.data.json();
+    const options = {
+        body: data.body,
+        icon: '/assets/icon-192.png',
+        badge: '/assets/badge-72.png',
+        vibrate: [100, 50, 100],
+        data: {
+            url: data.url || '/'
+        },
+        actions: [
+            {
+                action: 'view',
+                title: 'View'
+            },
+            {
+                action: 'close',
+                title: 'Close'
+            }
+        ]
+    };
+    
+    event.waitUntil(
+        self.registration.showNotification(data.title, options)
+    );
 });
 
 self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  
-  if (event.action === 'open') {
+    event.notification.close();
+    
+    if (event.action === 'close') {
+        return;
+    }
+    
     event.waitUntil(
-      clients.openWindow('/')
+        clients.matchAll({ type: 'window' })
+            .then(clientList => {
+                for (const client of clientList) {
+                    if (client.url === event.notification.data.url && 'focus' in client) {
+                        return client.focus();
+                    }
+                }
+                if (clients.openWindow) {
+                    return clients.openWindow(event.notification.data.url);
+                }
+            })
     );
-  }
+});
+
+// Periodic Sync (for data updates)
+self.addEventListener('periodicsync', event => {
+    if (event.tag === 'update-data') {
+        event.waitUntil(updateData());
+    }
+});
+
+// Helper Functions
+async function syncData() {
+    // This would sync offline data with server
+    // Implementation depends on your backend
+    console.log('Syncing data in background...');
+}
+
+async function updateData() {
+    // Periodic updates for vaccine schedules, stock levels, etc.
+    console.log('Updating data periodically...');
+}
+
+// Handle messages from main thread
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
