@@ -1,0 +1,193 @@
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="ghs-header">
+            <h1>Create Account</h1>
+            <p>Join Ghana Health Service Immunization Program</p>
+        </div>
+        
+        <form id="registerForm" class="auth-form" data-step="1">
+            
+            <!-- Step 1: Personal Information -->
+            <div class="form-step active" id="step1">
+                <h3>Personal Information</h3>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="firstName" class="form-label">First Name *</label>
+                            <input type="text" id="firstName" name="firstName" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="lastName" class="form-label">Last Name *</label>
+                            <input type="text" id="lastName" name="lastName" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="regEmail" class="form-label">Email Address *</label>
+                    <input type="email" id="regEmail" name="email" class="form-control" required>
+                    <div class="form-hint">Use your official email if available</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone" class="form-label">Phone Number *</label>
+                    <input type="tel" id="phone" name="phone" class="form-control"
+                           pattern="[0-9]{10}" placeholder="0241234567" required>
+                    <div class="form-hint">Ghanaian number (10 digits)</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="role" class="form-label">Your Role *</label>
+                    <select id="role" name="role" class="form-control" required>
+                        <option value="">Select your role</option>
+                        <option value="nurse">Nurse/Midwife</option>
+                        <option value="doctor">Medical Doctor</option>
+                        <option value="health_officer">Health Officer</option>
+                        <option value="community_worker">Community Health Worker</option>
+                        <option value="other">Other Health Professional</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Step 2: Account Security -->
+            <div class="form-step" id="step2">
+                <h3>Account Security</h3>
+                
+                <div class="form-group">
+                    <label for="regPassword" class="form-label">Create Password *</label>
+                    <div class="password-strength">
+                        <input type="password" id="regPassword" name="password" class="form-control" required>
+                        <div class="strength-meter">
+                            <div class="strength-bar" id="strengthBar"></div>
+                        </div>
+                    </div>
+                    <div class="password-requirements">
+                        <p>Password must contain:</p>
+                        <ul>
+                            <li id="req-length">At least 8 characters</li>
+                            <li id="req-uppercase">One uppercase letter</li>
+                            <li id="req-number">One number</li>
+                            <li id="req-special">One special character</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword" class="form-label">Confirm Password *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" required>
+                    <div class="error-message" id="confirmError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox">
+                        <input type="checkbox" id="terms" required>
+                        <span>I agree to the <a href="#terms">Terms of Service</a> and <a href="#privacy">Privacy Policy</a></span>
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox">
+                        <input type="checkbox" id="newsletter">
+                        <span>Receive updates about immunization programs</span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Step 3: First Facility -->
+            <div class="form-step" id="step3">
+                <h3>Create Your First Facility</h3>
+                <p>You can add more facilities later</p>
+                
+                <div class="form-group">
+                    <label for="facilityName" class="form-label">Facility Name *</label>
+                    <input type="text" id="facilityName" name="facilityName" class="form-control" required>
+                </div>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="facilityType" class="form-label">Facility Type *</label>
+                            <select id="facilityType" name="facilityType" class="form-control" required>
+                                <option value="">Select type</option>
+                                <option value="hospital">Hospital</option>
+                                <option value="clinic">Clinic</option>
+                                <option value="chps">CHPS Compound</option>
+                                <option value="health_center">Health Center</option>
+                                <option value="maternity">Maternity Home</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="facilityCode" class="form-label">Facility Code</label>
+                            <input type="text" id="facilityCode" name="facilityCode" class="form-control"
+                                   placeholder="Auto-generated" disabled>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="region" class="form-label">Region *</label>
+                    <select id="region" name="region" class="form-control" required>
+                        <option value="">Select Region</option>
+                        <option value="ashanti">Ashanti Region</option>
+                        <option value="greater_accra">Greater Accra</option>
+                        <option value="western">Western Region</option>
+                        <option value="eastern">Eastern Region</option>
+                        <option value="central">Central Region</option>
+                        <option value="volta">Volta Region</option>
+                        <option value="northern">Northern Region</option>
+                        <option value="upper_east">Upper East</option>
+                        <option value="upper_west">Upper West</option>
+                        <option value="bono">Bono Region</option>
+                        <option value="oti">Oti Region</option>
+                        <option value="ahafo">Ahafo Region</option>
+                        <option value="savannah">Savannah Region</option>
+                        <option value="north_east">North East Region</option>
+                        <option value="western_north">Western North</option>
+                    </select>
+                </div>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="district" class="form-label">District *</label>
+                            <input type="text" id="district" name="district" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="community" class="form-label">Community/Town</label>
+                            <input type="text" id="community" name="community" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="address" class="form-label">Full Address</label>
+                    <textarea id="address" name="address" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            
+            <!-- Form Navigation -->
+            <div class="form-navigation">
+                <button type="button" class="btn btn-outline" id="prevBtn" style="display: none;">
+                    Previous
+                </button>
+                <button type="button" class="btn btn-primary" id="nextBtn">
+                    Next Step
+                </button>
+                <button type="submit" class="btn btn-success" id="submitBtn" style="display: none;">
+                    Create Account
+                </button>
+            </div>
+            
+            <div class="auth-footer">
+                <p>Already have an account? <a href="#login">Sign In</a></p>
+            </div>
+        </form>
+    </div>
+</div>
